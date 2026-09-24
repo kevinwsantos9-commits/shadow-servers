@@ -3,29 +3,82 @@ plugins {
     id 'net.neoforged.gradle.userdev' version '7.0.145'
 }
 
-version = mod_version
 group = mod_group_id
+version = mod_version
 
-repositories { mavenCentral() }
+repositories {
+    mavenCentral()
+}
 
-base { archivesName = mod_id }
+base {
+    archivesName = mod_id
+}
+
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-neoForge {
-    version = neo_version
-    runs {
-        client { client(); systemProperty 'neoforge.enabledGameTestNamespaces', mod_id }
-        server { server(); programArgument '--nogui'; systemProperty 'neoforge.enabledGameTestNamespaces', mod_id }
+runs {
+    client {
+        client()
+        systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
     }
-    mods { "${mod_id}" { sourceSet(sourceSets.main) } }
+
+    server {
+        server()
+        systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+    }
+
+    gameTestServer {
+        type = "gameTestServer"
+        systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+    }
+
+    data {
+        data()
+        systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        programArguments.addAll '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+    }
 }
 
-dependencies { implementation "net.neoforged:neoforge:${neo_version}" }
-
-tasks.withType(ProcessResources).configureEach {
-    def props = [version: project.version, mod_id: mod_id, mod_name: mod_name]
-    inputs.properties props
-    filesMatching(['META-INF/neoforge.mods.toml']) { expand props }
+sourceSets.main.resources {
+    srcDir 'src/generated/resources'
 }
 
-tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+dependencies {
+    implementation "net.neoforged:neoforge:${neo_version}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+jar {
+    manifest {
+        attributes([
+            'Specification-Title'     : mod_name,
+            'Specification-Vendor'    : mod_group_id,
+            'Specification-Version'   : '1',
+            'Implementation-Title'    : project.name,
+            'Implementation-Version'  : project.version,
+            'Implementation-Vendor'   : mod_group_id
+        ])
+    }
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+        minecraft_version: minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        neo_version: neo_version,
+        neo_version_range: neo_version_range,
+        loader_version_range: loader_version_range,
+        mod_id: mod_id,
+        mod_name: mod_name,
+        mod_version: mod_version
+    ]
+
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/neoforge.mods.toml']) {
+        expand replaceProperties
+    }
+}
